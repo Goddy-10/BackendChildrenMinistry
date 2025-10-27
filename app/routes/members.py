@@ -3,7 +3,10 @@ from app.extensions import db
 from app.models import Member
 from datetime import datetime
 
-members_bp = Blueprint("members", __name__, )
+members_bp = Blueprint("members_bp", __name__ ,url_prefix="/api/members")
+
+
+
 
 @members_bp.get("/")
 def get_members():

@@ -70,7 +70,7 @@ def create_app(config_class=Config):
         resources={r"/*": {"origins": ["http://localhost:5173"]}},
         supports_credentials=True,
         allow_headers=["Content-Type", "Authorization"],  # allow Authorization header
-        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]  # allow common methods
+        methods=["GET", "POST", "PUT","PATCH", "DELETE", "OPTIONS"]  # allow common methods
     )
 
     # import models so they are registered with SQLAlchemy

@@ -231,6 +231,23 @@ class FinanceEntry(db.Model):
 
     creator = db.relationship("User", foreign_keys=[created_by])
 
+
+    def to_dict(self):
+        return {
+        "id": self.id,
+        "date": self.date.strftime("%Y-%m-%d"),
+        "amount": float(self.amount),
+        "service_type": self.service_type,
+        "source": self.source,
+        "created_by": self.created_by,
+        "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None,
+    }
+
+
+
+
+
+
 class Project(db.Model):
     """
     Development projects (development tab). Keep title, description, status, deadline.
@@ -246,6 +263,27 @@ class Project(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     creator = db.relationship("User", foreign_keys=[created_by])
+
+
+    def to_dict(self):
+        return {
+        "id": self.id,
+        "title": self.title,
+        "description": self.description,
+        "status": self.status,
+        "start_date": self.start_date.strftime("%Y-%m-%d") if self.start_date else None,
+        "end_date": self.end_date.strftime("%Y-%m-%d") if self.end_date else None,
+        "created_by": self.created_by,
+        "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None,
+        "creator": {
+            "id": self.creator.id,
+            "username": self.creator.username
+        } if self.creator else None
+    }
+
+
+
+
 
 # Optional: a Report model used by teachers (lesson reports, topic, bible reference, resources, remarks)
 class Report(db.Model):
@@ -284,6 +322,20 @@ class Mission(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
+            "partners": self.partners,
+            "support": self.support,
+            "contact": self.contact,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }
+
+
 class Department(db.Model):
     __tablename__ = "departments"
 
@@ -300,6 +352,19 @@ class Department(db.Model):
     members = db.relationship("User", backref="department", lazy=True)
 
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "contact_person": self.contact_person,
+            "contact_phone": self.contact_phone,
+            "contact_email": self.contact_email,
+            # optionally include member count
+            "member_count": len(self.members) if self.members else 0
+        }
+
+
 class NewMember(db.Model):
     __tablename__ = "new_members"
 
@@ -313,6 +378,21 @@ class NewMember(db.Model):
     # optional: link to Sunday class or department if relevant
     sunday_class_id = db.Column(db.Integer, db.ForeignKey("sunday_classes.id"), nullable=True)
     department_id = db.Column(db.Integer, db.ForeignKey("departments.id"), nullable=True)
+
+
+    def to_dict(self):
+        return {
+        "id": self.id,
+        "name": self.name,
+        "phone": self.phone,
+        "email": self.email,
+        "join_date": self.join_date.strftime("%Y-%m-%d") if self.join_date else None,
+        "notes": self.notes,
+        "sunday_class_id": self.sunday_class_id,
+        "department_id": self.department_id,
+        # Optional: include related objects if needed
+       
+    }
 
 
 
@@ -337,8 +417,8 @@ class Member(db.Model):
     home_church = db.relationship("HomeChurch", backref="members_list", lazy=True)
 
 
-def to_dict(self):
-    return {
+    def to_dict(self):
+        return {
         "id": self.id,
         "name": self.name,
         "phone": self.phone,
@@ -370,14 +450,13 @@ class Visitor(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
-def to_dict(self):
-    return {
+    def to_dict(self):
+        return {
         "id": self.id,
-        "name": self.name,
+        "name": self.full_name,
         "phone": self.phone,
         "email": self.email,
-        "purpose": self.purpose,
-        "visit_date": self.visit_date.isoformat() if self.visit_date else None,
+        "visit_date": self.date_of_visit.isoformat() if self.date_of_visit else None,
     }
 
 
@@ -399,8 +478,8 @@ class HomeChurch(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # In HomeChurch
-def to_dict(self):
-    return {
+    def to_dict(self):
+        return {
         "id": self.id,
         "name": self.name,
         "contact": self.contact,
@@ -422,8 +501,8 @@ class HomeChurchAttendance(db.Model):
     notes = db.Column(db.Text, nullable=True)
 
 
-def to_dict(self):
-    return {
+    def to_dict(self):
+        return {
         "id": self.id,
         "home_church_id": self.home_church_id,
         "date": self.date.isoformat(),
