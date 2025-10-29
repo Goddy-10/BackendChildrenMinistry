@@ -47,9 +47,9 @@ from flask import Flask
 from .extensions import db, migrate, jwt, cors
 from config import Config
 from app.routes.upload import gallery_bp
-from app.routes.members import members_bp
+
 from app.routes.hbc import homechurch_bp
-from app.routes.visitors import visitors_bp
+
 from . import models
 
 def create_app(config_class=Config):
@@ -77,6 +77,11 @@ def create_app(config_class=Config):
     from app.routes.adults_rest import adults_bp
     app.register_blueprint(adults_bp,url_prefix="/api")
       # noqa: F401
+    from app.routes.classes import classes_bp  
+    from app.routes.timetable import timetable_bp  
+    from app.routes.homepage import media_bp 
+    from app.routes.visitors import visitors_bp  
+    from app.routes.members import members_bp 
     from .routes.auth import auth_bp
     app.register_blueprint(auth_bp,url_prefix="/api/auth")
     from .routes.teacher import teachers_bp
@@ -85,8 +90,9 @@ def create_app(config_class=Config):
     app.register_blueprint(members_bp,url_prefix="/api/members")
     app.register_blueprint(homechurch_bp,url_prefix="/api/homechurches")
     app.register_blueprint(visitors_bp,url_prefix="/api/visitors")
-
-
+    app.register_blueprint(media_bp,url_prefix="/api/media") 
+    app.register_blueprint(timetable_bp,url_prefix="/api/timetable")
+    app.register_blueprint(classes_bp,url_prefix="/api/classes")
     print("✅ Registered Blueprints:", app.blueprints.keys())
     
 

@@ -93,6 +93,16 @@ class SundayClass(db.Model):
 
     def __repr__(self):
         return f"<SundayClass {self.name}>"
+    
+
+    def to_dict(self):
+        return {
+        "id": self.id,
+        "name": self.name,
+        "min_age": self.min_age,
+        "max_age": self.max_age,
+        "created_at": self.created_at.strftime("%Y-%m-%d") if self.created_at else None
+    }
 
 class Child(db.Model):
     """
@@ -182,6 +192,45 @@ class TimetableEntry(db.Model):
     resources = db.Column(db.Text, nullable=True)
     remarks = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+
+    @property
+    def class_name(self):
+        if not self.class_id:
+            return None
+        cls = SundayClass.query.get(self.class_id)
+        return cls.name if cls else None
+
+    @property
+    def teacher_name(self):
+        if not self.teacher_id:
+            return None
+        teacher = User.query.get(self.teacher_id)
+        return teacher.username if teacher else None
+    # Relationships
+
+
+    def to_dict(self):
+        cls = SundayClass.query.get(self.class_id) if self.class_id else None
+        teacher = User.query.get(self.teacher_id) if self.teacher_id else None
+
+        return {
+        "id": self.id,
+        "date": self.date.strftime("%Y-%m-%d"),
+        "class_id": self.class_id,
+        "class_name": cls.name if cls else None,
+        "teacher_id": self.teacher_id,
+        "teacher_name": teacher.username if teacher else None,
+        "topic": self.topic,
+        "bible_reference": self.bible_reference,
+        "resources": self.resources,
+        "remarks": self.remarks,
+        "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None,
+    }
+    
+    
+    
 
 class Event(db.Model):
     """
@@ -510,6 +559,34 @@ class HomeChurchAttendance(db.Model):
     }
 
 
+
+
+
+
+# app/models.py
+class HomeMedia(db.Model):
+    _tablename_ = "home_media"
+
+    id = db.Column(db.Integer, primary_key=True)
+    headline = db.Column(db.String(150), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    media_type = db.Column(db.String(20), nullable=False)  # "image" or "video"
+    file_url = db.Column(db.String(255), nullable=False)
+    is_featured = db.Column(db.Boolean, default=False)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "headline": self.headline,
+            "description": self.description,
+            "media_type": self.media_type,
+            "file_url": self.file_url,
+            "uploaded_by": self.uploaded_by,
+            "is_featured":self.is_featured,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 
