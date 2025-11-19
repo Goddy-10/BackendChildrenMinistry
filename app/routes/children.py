@@ -1,44 +1,75 @@
+
+
+
 # routes/children_routes.py
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from datetime import datetime, date
-from app.models import Child, Attendance, Offering, SundayClass, User
+from datetime import datetime, date, timedelta
+from app.models import Child, Attendance, Offering, SundayClass
 from app.extensions import db
 
 children_bp = Blueprint("children_bp", __name__, url_prefix="/api/children")
 
-# GET /api/children?search=...&page=1&page_size=20&class=Beginners
+# ------------------------
+# Utility Functions
+# ------------------------
+def get_sundays_between(start_date, end_date):
+    """Return a list of all Sundays between start_date and end_date (inclusive)."""
+    sundays = []
+    d = start_date
+    while d <= end_date:
+        if d.weekday() == 6:  # Sunday
+            sundays.append(d)
+        d += timedelta(days=1)
+    return sundays
+
+# ------------------------
+# CHILD CRUD
+# ------------------------
+
+# GET all children (optionally by class or search)
 @children_bp.route("/", methods=["GET"])
 def list_children():
     search = request.args.get("search", "").strip()
-    page = int(request.args.get("page", 1))
-    page_size = int(request.args.get("page_size", 20))
     class_filter = request.args.get("class")
 
     q = Child.query
     if search:
         q = q.filter(Child.name.ilike(f"%{search}%"))
-    if class_filter:
-        # if your Child has a class_id relation, try to map
-        q = q.filter(Child.class_id == (SundayClass.query.filter_by(name=class_filter).first().id if SundayClass.query.filter_by(name=class_filter).first() else None))
 
-    total = q.count()
-    items = q.order_by(Child.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    children = q.order_by(Child.id.desc()).all()
 
-    return jsonify({
-        "items": [c.to_dict() if hasattr(c, "to_dict") else {
-            "id": c.id, "name": c.name, "age": c.age, "gender": c.gender,
-            "parent_name": c.parent_name, "parent_contact": c.parent_contact,
-            "class_id": c.class_id, "created_at": c.created_at.isoformat() if c.created_at else None
-        } for c in items],
-        "page": page,
-        "page_size": page_size,
-        "total": total,
-        "total_pages": (total + page_size - 1) // page_size
-    }), 200
+    # Fetch Sunday classes with age ranges
+    sunday_classes = SundayClass.query.all()
 
-# POST /api/children
-# Teachers and admin can add children — protect in frontend with role; allow here with token optional but recommended
+    result = []
+    for c in children:
+        # Determine the child's class dynamically based on age
+        child_class = None
+        for sc in sunday_classes:
+            if sc.min_age is not None and sc.max_age is not None:
+                if c.age is not None and sc.min_age <= c.age <= sc.max_age:
+                    child_class = sc
+                    break
+
+        # If a class filter is applied, skip children not in that class
+        if class_filter and (not child_class or child_class.name != class_filter):
+            continue
+
+        result.append({
+            "id": c.id,
+            "name": c.name,
+            "age": c.age,
+            "gender": c.gender,
+            "parent_name": c.parent_name,
+            "parent_contact": c.parent_contact,
+            "class_id": child_class.id if child_class else None,
+            "class_name": child_class.name if child_class else None
+        })
+    return jsonify(result), 200
+
+
+# POST add a new child
 @children_bp.route("/", methods=["POST"])
 @jwt_required(optional=True)
 def add_child():
@@ -51,16 +82,29 @@ def add_child():
         name=name,
         age=data.get("age"),
         gender=data.get("gender"),
-        parent_name=data.get("parent_name") or data.get("parent") or None,
-        parent_contact=data.get("parent_contact") or data.get("contact") or None,
+        parent_name=data.get("parent_name") or data.get("parent"),
+        parent_contact=data.get("parent_contact") or data.get("contact"),
         class_id=data.get("class_id"),
-        added_by_id=get_jwt_identity() if get_jwt_identity() else None
+        added_by_id=get_jwt_identity()
     )
+    # --- AUTOMATIC CLASS ASSIGNMENT ---
+    if child.age is not None:
+        sunday_classes = SundayClass.query.all()
+    assigned_class = None
+    for sc in sunday_classes:
+        if sc.min_age is not None and sc.max_age is not None:
+            if sc.min_age <= child.age <= sc.max_age:
+                assigned_class = sc
+                break
+    if assigned_class:
+        child.class_id = assigned_class.id
+
+    # ----------------------------------
     db.session.add(child)
     db.session.commit()
-    return jsonify(child.to_dict() if hasattr(child, "to_dict") else {"id": child.id}), 201
+    return jsonify({"id": child.id}), 201
 
-# PUT /api/children/<id>
+# PUT update child
 @children_bp.route("/<int:id>", methods=["PUT", "PATCH"])
 @jwt_required()
 def update_child(id):
@@ -73,9 +117,9 @@ def update_child(id):
     child.parent_contact = data.get("parent_contact", child.parent_contact)
     child.class_id = data.get("class_id", child.class_id)
     db.session.commit()
-    return jsonify(child.to_dict() if hasattr(child, "to_dict") else {"id": child.id}), 200
+    return jsonify({"id": child.id}), 200
 
-# DELETE /api/children/<id>
+# DELETE child
 @children_bp.route("/<int:id>", methods=["DELETE"])
 @jwt_required()
 def delete_child(id):
@@ -84,9 +128,11 @@ def delete_child(id):
     db.session.commit()
     return jsonify({"message": "Child deleted"}), 200
 
-# ----------------------------
-# Attendance endpoints
-# POST /api/children/<child_id>/attendance  { date: "YYYY-MM-DD", present: true, remarks: "..." }
+# ------------------------
+# ATTENDANCE
+# ------------------------
+
+# POST mark attendance for a child
 @children_bp.route("/<int:child_id>/attendance", methods=["POST"])
 @jwt_required()
 def mark_attendance(child_id):
@@ -96,7 +142,7 @@ def mark_attendance(child_id):
     if dt_str:
         try:
             dt = datetime.strptime(dt_str, "%Y-%m-%d").date()
-        except Exception:
+        except ValueError:
             return jsonify({"error": "Invalid date format, expected YYYY-MM-DD"}), 400
     else:
         dt = date.today()
@@ -104,7 +150,6 @@ def mark_attendance(child_id):
     present = bool(data.get("present", True))
     remarks = data.get("remarks")
 
-    # If an attendance record exists for that child & date, update it
     rec = Attendance.query.filter_by(child_id=child.id, date=dt).first()
     if rec:
         rec.present = present
@@ -123,58 +168,57 @@ def mark_attendance(child_id):
     db.session.commit()
     return jsonify({"id": rec.id, "child_id": rec.child_id, "date": rec.date.isoformat(), "present": rec.present}), 201
 
-# GET /api/children/<child_id>/attendance?start=YYYY-MM-DD&end=YYYY-MM-DD
-@children_bp.route("/<int:child_id>/attendance", methods=["GET"])
+# GET attendance matrix for a child (last 5 months)
+@children_bp.route("/<int:child_id>/attendance_matrix", methods=["GET"])
 @jwt_required(optional=True)
-def get_child_attendance(child_id):
+def attendance_matrix(child_id):
     child = Child.query.get_or_404(child_id)
-    start = request.args.get("start")
-    end = request.args.get("end")
-    q = Attendance.query.filter_by(child_id=child.id)
-    if start:
-        try:
-            s = datetime.strptime(start, "%Y-%m-%d").date()
-            q = q.filter(Attendance.date >= s)
-        except:
-            pass
-    if end:
-        try:
-            e = datetime.strptime(end, "%Y-%m-%d").date()
-            q = q.filter(Attendance.date <= e)
-        except:
-            pass
-    recs = q.order_by(Attendance.date.desc()).all()
-    out = []
-    for r in recs:
-        out.append({
-            "id": r.id,
-            "date": r.date.isoformat(),
-            "present": bool(r.present),
-            "remarks": r.remarks,
-            "recorded_by": r.recorded_by
-        })
-    return jsonify(out), 200
+    today = date.today()
+    start_date = today - timedelta(days=150)  # approx last 5 months
 
-# ----------------------------
-# Offerings endpoints (per class)
-# POST /api/children/offerings  { date, class_id, amount, note }
+    sundays = get_sundays_between(start_date, today)
+    attendance_records = Attendance.query.filter(
+        Attendance.child_id == child_id,
+        Attendance.date.in_(sundays)
+    ).all()
+
+    att_map = {r.date: "X" if r.present else "0" for r in attendance_records}
+
+    matrix = []
+    for d in sundays:
+        matrix.append({
+            "date": d.isoformat(),
+            "status": att_map.get(d, "0")  # default absent
+        })
+
+    return jsonify({
+        "child_id": child_id,
+        "child_name": child.name,
+        "class_id": child.class_id,
+        "attendance": matrix
+    }), 200
+
+# ------------------------
+# OFFERINGS (per class)
+# ------------------------
+
+# POST add offering
 @children_bp.route("/offerings", methods=["POST"])
 @jwt_required()
 def add_offering():
     data = request.get_json() or {}
     dt_str = data.get("date")
+    dt = date.today()
     if dt_str:
         try:
             dt = datetime.strptime(dt_str, "%Y-%m-%d").date()
-        except:
-            return jsonify({"error": "Invalid date"}), 400
-    else:
-        dt = date.today()
+        except ValueError:
+            return jsonify({"error": "Invalid date format"}), 400
 
     class_id = data.get("class_id")
     amount = data.get("amount")
     if amount is None:
-        return jsonify({"error": "amount required"}), 400
+        return jsonify({"error": "Amount required"}), 400
 
     offering = Offering(
         date=dt,
@@ -185,9 +229,9 @@ def add_offering():
     )
     db.session.add(offering)
     db.session.commit()
-    return jsonify({"id": offering.id, "date": offering.date.isoformat(), "amount": str(offering.amount)}), 201
+    return jsonify({"id": offering.id, "date": offering.date.isoformat(), "amount": float(offering.amount)}), 201
 
-# GET /api/children/offerings?start=YYYY-MM-DD&end=YYYY-MM-DD&class_id=...
+# GET offerings
 @children_bp.route("/offerings", methods=["GET"])
 @jwt_required(optional=True)
 def list_offerings():
@@ -209,6 +253,7 @@ def list_offerings():
             pass
     if class_id:
         q = q.filter(Offering.class_id == class_id)
+
     items = q.order_by(Offering.date.desc()).all()
     out = [{
         "id": o.id,

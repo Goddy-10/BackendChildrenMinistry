@@ -82,6 +82,7 @@ def create_app(config_class=Config):
     from app.routes.homepage import media_bp 
     from app.routes.visitors import visitors_bp  
     from app.routes.members import members_bp 
+    from app.routes.children import children_bp
     from .routes.auth import auth_bp
     app.register_blueprint(auth_bp,url_prefix="/api/auth")
     from .routes.teacher import teachers_bp
@@ -93,6 +94,7 @@ def create_app(config_class=Config):
     app.register_blueprint(media_bp,url_prefix="/api/media") 
     app.register_blueprint(timetable_bp,url_prefix="/api/timetable")
     app.register_blueprint(classes_bp,url_prefix="/api/classes")
+    app.register_blueprint(children_bp,url_prefix="/api/children")
     print("✅ Registered Blueprints:", app.blueprints.keys())
     
 
