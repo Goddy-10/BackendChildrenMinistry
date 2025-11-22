@@ -7,6 +7,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, date, timedelta
 from app.models import Child, Attendance, Offering, SundayClass
 from app.extensions import db
+from sqlalchemy import text
 
 children_bp = Blueprint("children_bp", __name__, url_prefix="/api/children")
 
@@ -67,6 +68,40 @@ def list_children():
             "class_name": child_class.name if child_class else None
         })
     return jsonify(result), 200
+
+
+#---------------DISPLAY ATTENDANCE-------#
+
+
+
+@children_bp.route("/attendance", methods=["GET"])
+def get_attendance_range():
+    start_date = request.args.get("start")
+    end_date = request.args.get("end")
+
+    if not start_date or not end_date:
+        return jsonify({"error": "start and end dates are required"}), 400
+
+    try:
+        sql = text("""
+            SELECT COUNT(*) AS total
+            FROM attendance
+            WHERE date BETWEEN :start AND :end
+        """)
+
+        result = db.session.execute(sql, {"start": start_date, "end": end_date}).fetchone()
+
+        return jsonify({
+            "start": start_date,
+            "end": end_date,
+            "total_attendance": result.total if result else 0
+        }), 200
+
+    except Exception as e:
+        print("Attendance range error:", e)
+        return jsonify({"error": "Server error"}), 500
+
+
 
 
 # POST add a new child

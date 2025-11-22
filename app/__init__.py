@@ -79,6 +79,7 @@ def create_app(config_class=Config):
       # noqa: F401
     from app.routes.classes import classes_bp  
     from app.routes.timetable import timetable_bp  
+    from app.routes.reports import reports_bp
     from app.routes.homepage import media_bp 
     from app.routes.visitors import visitors_bp  
     from app.routes.members import members_bp 
@@ -95,6 +96,8 @@ def create_app(config_class=Config):
     app.register_blueprint(timetable_bp,url_prefix="/api/timetable")
     app.register_blueprint(classes_bp,url_prefix="/api/classes")
     app.register_blueprint(children_bp,url_prefix="/api/children")
+    app.register_blueprint(reports_bp,url_prefix="/api/reports")
+
     print("✅ Registered Blueprints:", app.blueprints.keys())
     
 
