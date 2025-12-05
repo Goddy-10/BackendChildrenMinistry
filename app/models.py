@@ -2,6 +2,8 @@
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from .extensions import db
+from sqlalchemy import event
+
 
 # Association table for many-to-many: Event <-> Media (optional)
 event_media = db.Table(
@@ -121,7 +123,8 @@ class Child(db.Model):
     class_id = db.Column(db.Integer, db.ForeignKey("sunday_classes.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    attendance_records = db.relationship("Attendance", backref="child", lazy="dynamic")
+
+    attendance_records = db.relationship("Attendance", backref="child", lazy=True, cascade="all,delete-orphan",passive_deletes=True)
 
     def to_dict(self):
         return {
@@ -135,6 +138,41 @@ class Child(db.Model):
             "created_at": self.created_at.isoformat(),
         }
 
+
+
+
+AGE_RANGES = {
+    "Gifted Brains": (0, 3),
+    "Beginners": (3, 6),
+    "Shinners": (6, 9),
+    "Conquerors": (9, 13),
+    "Teens": (13, 18),
+}
+
+def assign_class(target):
+    if target.age is None:
+        return
+    try:
+        age = int(target.age)
+    except (ValueError, TypeError):
+        return
+    for class_name, (min_age, max_age) in AGE_RANGES.items():
+        if min_age <= age < max_age:
+            cls = db.session.query(SundayClass).filter_by(name=class_name).first()
+            if cls:
+                target.class_id = cls.id
+            break
+
+@event.listens_for(Child, "before_insert")
+def auto_assign_class_insert(mapper, connection, target):
+    assign_class(target)
+
+@event.listens_for(Child, "before_update")
+def auto_assign_class_update(mapper, connection, target):
+    assign_class(target)
+
+    
+
 class Attendance(db.Model):
     """
     Attendance per child per date, tied to a SundayClass (or class assigned).
@@ -144,7 +182,7 @@ class Attendance(db.Model):
     __tablename__ = "attendance"
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False)
-    child_id = db.Column(db.Integer, db.ForeignKey("children.id"), nullable=False)
+    child_id = db.Column(db.Integer, db.ForeignKey("children.id",ondelete="CASCADE"), nullable=False)
     present = db.Column(db.Boolean, default=False)
     class_id = db.Column(db.Integer, db.ForeignKey("sunday_classes.id"), nullable=True)
     recorded_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
@@ -264,33 +302,61 @@ class MediaItem(db.Model):
 
     uploader = db.relationship("User", foreign_keys=[uploaded_by])
 
+# ==================== REPLACE MY OLD FinanceEntry ====================
 class FinanceEntry(db.Model):
-    """
-    Generic finance entries (for adults channel) — date, amount, service type, notes.
-    This can be extended to show monthly/yearly totals.
-    """
     __tablename__ = "finance_entries"
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.Date, nullable=False, index=True)
-    amount = db.Column(db.Numeric(12, 2), nullable=False, default=0.0)
-    service_type = db.Column(db.String(120), nullable=True)  # e.g. Sunday, Midweek, Conference
-    source = db.Column(db.String(255), nullable=True)  # optional
+    
+    # Income-specific fields
+    service_type = db.Column(db.String(120), nullable=True)  # Sunday, Midweek, etc.
+    main_church = db.Column(db.Numeric(12, 2), default=0.0)
+    children_ministry = db.Column(db.Numeric(12, 2), default=0.0)
+    
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     creator = db.relationship("User", foreign_keys=[created_by])
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "type": "income",
+            "date": self.date.strftime("%Y-%m-%d"),
+            "service_type": self.service_type,
+            "main_church": float(self.main_church),
+            "children_ministry": float(self.children_ministry),
+            "amount": 0,           # kept for compatibility
+            "details": None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ==================== NEW Expenditure MODEL ====================
+class Expenditure(db.Model):
+    __tablename__ = "expenditures"
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False, index=True)
+    amount = db.Column(db.Numeric(12, 2), nullable=False)
+    details = db.Column(db.String(255), nullable=False)  # e.g. "Rent – Main Hall"
+
+    created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    creator = db.relationship("User", foreign_keys=[created_by])
 
     def to_dict(self):
         return {
-        "id": self.id,
-        "date": self.date.strftime("%Y-%m-%d"),
-        "amount": float(self.amount),
-        "service_type": self.service_type,
-        "source": self.source,
-        "created_by": self.created_by,
-        "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S") if self.created_at else None,
-    }
+            "id": self.id,
+            "type": "expenditure",
+            "date": self.date.strftime("%Y-%m-%d"),
+            "service_type": None,
+            "main_church": 0,
+            "children_ministry": 0,
+            "amount": float(self.amount),
+            "details": self.details,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 
@@ -354,34 +420,51 @@ class Report(db.Model):
 
     # app/models.py (additions)
 
+
+
 class Mission(db.Model):
     __tablename__ = "missions"
 
     id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(120), nullable=False)
-    description = db.Column(db.Text, nullable=True)
-    start_date = db.Column(db.Date, nullable=True)
-    end_date = db.Column(db.Date, nullable=True)
-
-    # new fields
-    partners = db.Column(db.String(255), nullable=True)   # e.g. "World Vision, Red Cross"
-    support = db.Column(db.String(255), nullable=True)    # e.g. "Financial aid, food supplies"
-    contact = db.Column(db.String(120), nullable=True)    # partner contact (phone/email)
+    title = db.Column(db.String(120), nullable=False)  # activity name
+    date = db.Column(db.Date, nullable=True)           # single mission date
+    location = db.Column(db.String(200), nullable=True)
+    souls_won=db.Column(db.Integer,default=0)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Relationship: one mission has many partners
+    partners = db.relationship("MissionPartner", backref="mission", cascade="all, delete-orphan")
 
     def to_dict(self):
         return {
             "id": self.id,
             "title": self.title,
-            "description": self.description,
-            "start_date": self.start_date.isoformat() if self.start_date else None,
-            "end_date": self.end_date.isoformat() if self.end_date else None,
-            "partners": self.partners,
+            "date": self.date.isoformat() if self.date else None,
+            "location": self.location,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "souls_won":self.souls_won,
+            "partners": [p.to_dict() for p in self.partners]  # include all partners
+        }
+
+
+class MissionPartner(db.Model):
+    __tablename__ = "mission_partners"
+
+    id = db.Column(db.Integer, primary_key=True)
+    mission_id = db.Column(db.Integer, db.ForeignKey("missions.id"), nullable=False)
+
+    name = db.Column(db.String(120), nullable=False)
+    support = db.Column(db.Float, nullable=True)  # numeric support (optional)
+    contact = db.Column(db.String(120), nullable=True)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "mission_id": self.mission_id,
+            "partner_name": self.name,
             "support": self.support,
-            "contact": self.contact,
-            "created_at": self.created_at.isoformat() if self.created_at else None
+            "contact": self.contact
         }
 
 
@@ -588,5 +671,57 @@ class HomeMedia(db.Model):
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
+
+
+
+
+
+
+
+
+# -------------------------------
+# PROGRAM MATERIAL MODELS
+# -------------------------------
+
+class Program(db.Model):
+    __tablename__ = "programs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    description = db.Column(db.Text, nullable=False)
+    coordinator = db.Column(db.String(120))
+    date = db.Column(db.String(20))
+
+    files = db.relationship(
+        "ProgramFile",
+        backref="program",
+        cascade="all, delete-orphan",
+        lazy=True
+    )
+
+    def to_dict(self):
+        return {
+        "id": self.id,
+        "description": self.description,
+        "coordinator": self.coordinator,
+        "date": self.date,
+        "files": [file.to_dict() for file in self.files]   # ← FIX
+    }
+
+
+class ProgramFile(db.Model):
+    __tablename__ = "program_files"
+
+    id = db.Column(db.Integer, primary_key=True)
+    program_id = db.Column(db.Integer, db.ForeignKey("programs.id"), nullable=False)
+    filename = db.Column(db.String(255), nullable=False)
+    file_type = db.Column(db.String(20))
+
+    def to_dict(self):
+        return {
+        "id": self.id,
+        "filename": self.filename,
+        "file_type": self.file_type,
+        "url": f"/uploads/{self.filename}"   # ← VERY IMPORTANT
+    }
 
 

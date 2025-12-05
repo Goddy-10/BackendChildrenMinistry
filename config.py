@@ -10,5 +10,10 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "jwt-secret-dev")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
+    
+
+UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads", "programs")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
     # other config values if needed
     

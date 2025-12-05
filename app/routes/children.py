@@ -40,21 +40,16 @@ def list_children():
 
     children = q.order_by(Child.id.desc()).all()
 
-    # Fetch Sunday classes with age ranges
-    sunday_classes = SundayClass.query.all()
+    # Fetch all classes once
+    classes = {c.id: c.name for c in SundayClass.query.all()}
 
     result = []
     for c in children:
-        # Determine the child's class dynamically based on age
-        child_class = None
-        for sc in sunday_classes:
-            if sc.min_age is not None and sc.max_age is not None:
-                if c.age is not None and sc.min_age <= c.age <= sc.max_age:
-                    child_class = sc
-                    break
+        # Use stored class_id instead of dynamic age calculation
+        class_name = classes.get(c.class_id)
 
-        # If a class filter is applied, skip children not in that class
-        if class_filter and (not child_class or child_class.name != class_filter):
+        # Apply class filter if provided
+        if class_filter and class_name != class_filter:
             continue
 
         result.append({
@@ -64,9 +59,10 @@ def list_children():
             "gender": c.gender,
             "parent_name": c.parent_name,
             "parent_contact": c.parent_contact,
-            "class_id": child_class.id if child_class else None,
-            "class_name": child_class.name if child_class else None
+            "class_id": c.class_id,
+            "class_name": class_name
         })
+
     return jsonify(result), 200
 
 
@@ -84,18 +80,17 @@ def get_attendance_range():
 
     try:
         sql = text("""
-            SELECT COUNT(*) AS total
+            SELECT id, child_id, date, present
             FROM attendance
             WHERE date BETWEEN :start AND :end
+            ORDER BY date DESC
         """)
 
-        result = db.session.execute(sql, {"start": start_date, "end": end_date}).fetchone()
+        result = db.session.execute(sql, {"start": start_date, "end": end_date}).fetchall()
+        # Convert rows to list of dicts
+        rows = [dict(r._mapping) for r in result]
 
-        return jsonify({
-            "start": start_date,
-            "end": end_date,
-            "total_attendance": result.total if result else 0
-        }), 200
+        return jsonify(rows), 200
 
     except Exception as e:
         print("Attendance range error:", e)
@@ -203,6 +198,35 @@ def mark_attendance(child_id):
     db.session.commit()
     return jsonify({"id": rec.id, "child_id": rec.child_id, "date": rec.date.isoformat(), "present": rec.present}), 201
 
+#--------attendance by class id (GET)----------#
+
+
+@children_bp.route("/attendance_by_class/<int:class_id>", methods=["GET"])
+def attendance_by_class(class_id):
+    # Join Attendance with Child to get children of a specific class
+    results = (
+        db.session.query(Attendance, Child)
+        .join(Child, Attendance.child_id == Child.id)
+        .filter(Child.class_id == class_id)
+        .all()
+    )
+
+    # Serialize the results
+    data = []
+    for att, child in results:
+        data.append({
+            "attendance_id": att.id,
+            "child_id": child.id,
+            "child_name": child.name,
+            "age": child.age,
+            "class_id": child.class_id,
+            "class_name": child.sunday_class.name if child.sunday_class else None,
+            "date": att.date.isoformat(),
+            "present": att.present
+        })
+
+    return jsonify(data), 200
+
 # GET attendance matrix for a child (last 5 months)
 @children_bp.route("/<int:child_id>/attendance_matrix", methods=["GET"])
 @jwt_required(optional=True)
@@ -264,7 +288,7 @@ def add_offering():
     )
     db.session.add(offering)
     db.session.commit()
-    return jsonify({"id": offering.id, "date": offering.date.isoformat(), "amount": float(offering.amount)}), 201
+    return jsonify({"id": offering.id, "date": offering.date.isoformat(),"class_id":offering.class_id, "amount": float(offering.amount),"note":offering.note,"recorded_by":offering.recorded_by}), 201
 
 # GET offerings
 @children_bp.route("/offerings", methods=["GET"])

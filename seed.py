@@ -12,7 +12,7 @@ classes = [
     ("Beginners", 3, 6),
     ("Shinners", 6, 9),
     ("Conquerors", 9, 13),
-    ("Teens", 13, 99),
+    ("Teens", 13, 17),
 ]
 for name, min_age, max_age in classes:
     if not SundayClass.query.filter_by(name=name).first():

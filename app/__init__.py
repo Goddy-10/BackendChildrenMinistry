@@ -1,51 +1,10 @@
-# # app/__init__.py
-# from flask import Flask
-# from .extensions import db, migrate, jwt, cors
-# from config import Config
-# from app.routes.upload import gallery_bp
-
-# def create_app(config_class=Config):
-#     app = Flask(__name__, static_folder=None)
-#     app.config.from_object(config_class)
-
-#     # initialize extensions
-#     db.init_app(app)
-#     migrate.init_app(app, db)
-#     jwt.init_app(app)
-#     cors.init_app(app, resources={r"/*": {"origins": ["http://localhost:5173"]}},supports_credentials=True)
-
-#     # import models so they are registered with SQLAlchemy
-#     from . import models  # noqa: F401
-#     from .routes.auth import auth_bp
-#     app.register_blueprint(auth_bp,url_prefix="/api/auth")
-#     from.routes.teacher import teachers_bp
-#     app.register_blueprint(teachers_bp,url_prefix="/teachers")
-#     app.register_blueprint(gallery_bp,url_prefix="/api")
-    
-
-    
-    
-  
-
-#     @app.route("/health")
-#     def health():
-#         return {"status": "ok"}
-
-#     return app
-
-
-
-
-
-
-
 
 
 
 # app/__init__.py
-from flask import Flask
+from flask import Flask ,send_from_directory ,current_app
 from .extensions import db, migrate, jwt, cors
-from config import Config
+from config import Config,UPLOAD_FOLDER
 from app.routes.upload import gallery_bp
 
 from app.routes.hbc import homechurch_bp
@@ -55,12 +14,27 @@ from . import models
 def create_app(config_class=Config):
     app = Flask(__name__, static_folder=None)
     app.config.from_object(config_class)
+    app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+    @app.route("/uploads/<path:filename>")
+    def serve_file(filename):
+        return send_from_directory(current_app.config["UPLOAD_FOLDER"], filename)
+    
+    
+
+   
+    
+
 
 
     # initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+
+
+
+    
 
 
 
@@ -73,6 +47,14 @@ def create_app(config_class=Config):
         methods=["GET", "POST", "PUT","PATCH", "DELETE", "OPTIONS"]  # allow common methods
     )
 
+    # THIS IS THE FIX
+    from flask_jwt_extended import JWTManager
+    app.config["JWT_TOKEN_LOCATION"] = ["headers"]           # only look in Authorization header
+    # optional but recommended
+    app.config["JWT_HEADER_NAME"] = "Authorization"
+    app.config["JWT_HEADER_TYPE"] = "Bearer"
+
+
     # import models so they are registered with SQLAlchemy
     from app.routes.adults_rest import adults_bp
     app.register_blueprint(adults_bp,url_prefix="/api")
@@ -84,6 +66,7 @@ def create_app(config_class=Config):
     from app.routes.visitors import visitors_bp  
     from app.routes.members import members_bp 
     from app.routes.children import children_bp
+    from app.routes.programs import programs_bp
     from .routes.auth import auth_bp
     app.register_blueprint(auth_bp,url_prefix="/api/auth")
     from .routes.teacher import teachers_bp
@@ -97,6 +80,7 @@ def create_app(config_class=Config):
     app.register_blueprint(classes_bp,url_prefix="/api/classes")
     app.register_blueprint(children_bp,url_prefix="/api/children")
     app.register_blueprint(reports_bp,url_prefix="/api/reports")
+    app.register_blueprint(programs_bp,url_prefix="/api/programs")
 
     print("✅ Registered Blueprints:", app.blueprints.keys())
     
