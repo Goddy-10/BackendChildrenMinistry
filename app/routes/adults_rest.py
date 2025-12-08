@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify,send_file
 
 from flask_jwt_extended import jwt_required,get_jwt_identity
 from datetime import datetime
-from app.models import  FinanceEntry, Project, Mission, Department, NewMember,Expenditure,MissionPartner
+from app.models import  FinanceEntry, Project, Mission, Department, NewMember,Expenditure,MissionPartner,DepartmentMember
 from app.extensions import db
 from sqlalchemy import and_
 from io import BytesIO
@@ -579,3 +579,10 @@ def delete_new_member(id):
     db.session.delete(member)
     db.session.commit()
     return jsonify({"message": "New member deleted"}), 200
+
+
+
+
+
+
+

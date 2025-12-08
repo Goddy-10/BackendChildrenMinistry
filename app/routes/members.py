@@ -5,10 +5,7 @@ from datetime import datetime
 
 members_bp = Blueprint("members_bp", __name__ ,url_prefix="/api/members")
 
-
-
-
-@members_bp.get("/")
+@members_bp.get("")
 def get_members():
     print("GET /members reached")
     members = Member.query.all()
@@ -16,21 +13,29 @@ def get_members():
 
 
 
-@members_bp.post("/")
+@members_bp.post("")
 def add_member():
     data = request.get_json()
     try:
         member = Member(
-            name=data["name"],
+            full_name=data.get("name"),
             phone=data.get("phone"),
-            email=data.get("email"),
-            gender=data.get("gender"),
-            join_date=datetime.strptime(data["join_date"], "%Y-%m-%d").date() if data.get("join_date") else None,
+            residence=data.get("residence"),
+            
             department_id=data.get("department_id"),
         )
         db.session.add(member)
         db.session.commit()
-        return jsonify({"message": "Member added successfully", "member": member.to_dict()}), 201
+        return jsonify({
+            
+            "member": {
+                "id": member.id,
+                "name": member.full_name,        # include 'name' for frontend
+                "residence": member.residence,     # include 'position'
+                "phone": member.phone,
+                "department_id": member.department_id
+            }
+        }), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400
@@ -43,11 +48,11 @@ def update_member(id):
 
     try:
         if "name" in data:
-            member.name = data["name"]
+            member.full_name = data["name"]
         if "phone" in data:
             member.phone = data["phone"]
-        if "email" in data:
-            member.email = data["email"]
+        if "position" in data:
+            member.position = data["position"]
         if "gender" in data:
             member.gender = data["gender"]
         if "department_id" in data:

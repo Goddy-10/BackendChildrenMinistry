@@ -59,6 +59,7 @@ def create_app(config_class=Config):
     from app.routes.adults_rest import adults_bp
     app.register_blueprint(adults_bp,url_prefix="/api")
       # noqa: F401
+    from app.routes.departments import department_members_bp
     from app.routes.classes import classes_bp  
     from app.routes.timetable import timetable_bp  
     from app.routes.reports import reports_bp
@@ -72,7 +73,7 @@ def create_app(config_class=Config):
     from .routes.teacher import teachers_bp
     app.register_blueprint(teachers_bp, url_prefix="/api/teachers")
     app.register_blueprint(gallery_bp, url_prefix="/api")
-    app.register_blueprint(members_bp,url_prefix="/api/members")
+    app.register_blueprint(members_bp)
     app.register_blueprint(homechurch_bp,url_prefix="/api/homechurches")
     app.register_blueprint(visitors_bp,url_prefix="/api/visitors")
     app.register_blueprint(media_bp,url_prefix="/api/media") 
@@ -81,6 +82,8 @@ def create_app(config_class=Config):
     app.register_blueprint(children_bp,url_prefix="/api/children")
     app.register_blueprint(reports_bp,url_prefix="/api/reports")
     app.register_blueprint(programs_bp,url_prefix="/api/programs")
+    app.register_blueprint(department_members_bp)
+
 
     print("✅ Registered Blueprints:", app.blueprints.keys())
     

@@ -43,8 +43,8 @@ def add_visitor():
 
     return jsonify(visitor.to_dict()), 201
 # -------------------- UPDATE VISITOR --------------------
-@visitors_bp.patch("<int:id>")
-@jwt_required()
+@visitors_bp.patch("/<int:id>")
+# @jwt_required()
 def update_visitor(id):
     visitor = Visitor.query.get_or_404(id)
     data = request.get_json()
@@ -58,8 +58,8 @@ def update_visitor(id):
     return jsonify(visitor.to_dict()), 200
 
 # -------------------- DELETE SINGLE VISITOR --------------------
-@visitors_bp.delete("<int:id>")
-@jwt_required()
+@visitors_bp.delete("/<int:id>")
+# @jwt_required()
 def delete_visitor(id):
     visitor = Visitor.query.get_or_404(id)
     db.session.delete(visitor)
@@ -68,7 +68,7 @@ def delete_visitor(id):
 
 # -------------------- CLEAR FOLLOWED-UP VISITORS --------------------
 @visitors_bp.delete("/clear")
-@jwt_required()
+# @jwt_required()
 def clear_followed_up_visitors():
     user_id = get_jwt_identity()
     user = User.query.get(user_id)

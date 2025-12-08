@@ -535,7 +535,7 @@ class Member(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(120), nullable=False)
     phone = db.Column(db.String(20), nullable=True)
-    email = db.Column(db.String(120), nullable=True, unique=True)
+    position = db.Column(db.String(120), nullable=True)
     residence = db.Column(db.String(120), nullable=True)
     date_joined = db.Column(db.Date, default=datetime.utcnow)
 
@@ -552,11 +552,11 @@ class Member(db.Model):
     def to_dict(self):
         return {
         "id": self.id,
-        "name": self.name,
+        "full_name": self.full_name,
         "phone": self.phone,
-        "email": self.email,
-        "gender": self.gender,
-        "join_date": self.join_date.isoformat() if self.join_date else None,
+        "residence": self.residence,
+        
+        
         "department_id": self.department_id
     }
 
@@ -584,11 +584,15 @@ class Visitor(db.Model):
 
     def to_dict(self):
         return {
-        "id": self.id,
-        "name": self.full_name,
-        "phone": self.phone,
-        "email": self.email,
-        "visit_date": self.date_of_visit.isoformat() if self.date_of_visit else None,
+            "id": self.id,
+            "full_name": self.full_name,
+            "name": self.full_name,  # keep 'name' if frontend expects it
+            "phone": self.phone,
+            "email": self.email,
+            "residence": self.residence,
+            "prayer_request": self.prayer_request,
+            "visit_date": self.date_of_visit.isoformat() if self.date_of_visit else None,
+            "follow_up_status": self.follow_up_status
     }
 
 
@@ -723,5 +727,25 @@ class ProgramFile(db.Model):
         "file_type": self.file_type,
         "url": f"/uploads/{self.filename}"   # ← VERY IMPORTANT
     }
+
+
+
+
+
+class DepartmentMember(db.Model):
+    __tablename__ = "department_members"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    position = db.Column(db.String(100), nullable=True)
+    phone = db.Column(db.String(20), nullable=True)
+
+    department_id = db.Column(
+        db.Integer, db.ForeignKey("departments.id"), nullable=True
+    )
+
+    department = db.relationship("Department", backref="department_members", lazy=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
