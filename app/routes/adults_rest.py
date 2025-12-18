@@ -551,6 +551,7 @@ def add_new_member():
         email=data.get("email"),
         join_date=datetime.strptime(data["join_date"], "%Y-%m-%d") if data.get("join_date") else datetime.utcnow(),
         notes=data.get("notes"),
+        residence=data.get("residence"),
         sunday_class_id=data.get("sunday_class_id"),
         department_id=data.get("department_id"),
     )
@@ -562,7 +563,7 @@ def add_new_member():
 def update_new_member(id):
     member = NewMember.query.get_or_404(id)
     data = request.get_json()
-    for field in ["name", "phone", "email", "notes", "sunday_class_id", "department_id"]:
+    for field in ["name", "phone", "email", "notes","residence", "sunday_class_id", "department_id"]:
         if field in data:
             setattr(member, field, data[field])
 

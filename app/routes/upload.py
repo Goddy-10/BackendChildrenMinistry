@@ -7,7 +7,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 import cloudinary.uploader
 from app.models import db, MediaItem, User
 
-gallery_bp = Blueprint("gallery", __name__, url_prefix="/gallery")
+gallery_bp = Blueprint("gallery", __name__, url_prefix="/api/gallery")
 
 # ---------- GET MEDIA ----------
 @gallery_bp.route("/<string:media_type>", methods=["GET"])
@@ -80,3 +80,90 @@ def upload_media():
         "url": media_item.url,
         "description": getattr(media_item, "description", "")
     }), 201
+
+
+
+
+
+# ---------- UPDATE MEDIA DETAILS ----------
+# ---------- TOGGLE FEATURED ----------
+@gallery_bp.route("/edit/<int:item_id>", methods=["PATCH"])
+@jwt_required()
+def toggle_featured(item_id):
+    """Mark/unmark a media file as featured"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user or user.role != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    item = MediaItem.query.get(item_id)
+    if not item:
+        return jsonify({"error": "Media not found"}), 404
+
+    item.is_featured = not item.is_featured
+    db.session.commit()
+
+    return jsonify({
+        "message": "Updated successfully",
+        "is_featured": item.is_featured
+    }), 200
+
+
+
+# ---------- GET FEATURED FOR HOMEPAGE ----------
+@gallery_bp.route("/featured", methods=["GET"])
+def get_featured_media():
+    """Fetch only featured media for homepage"""
+    items = MediaItem.query.filter_by(is_featured=True).order_by(MediaItem.uploaded_at.desc()).all()
+
+    return jsonify([
+        {
+            "id": item.id,
+            "url": item.url,
+            "description": item.description,
+            "media_type": "image" if item.mimetype.startswith("image") else "video",
+        }
+        for item in items
+    ])
+
+
+
+
+
+
+
+
+# ---------- DELETE MEDIA ----------
+@gallery_bp.route("/delete/<int:item_id>", methods=["DELETE"])
+@jwt_required()
+def delete_media(item_id):
+    """Delete a photo or video (admins only)"""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    # Admin-only restriction
+    if not user or user.role != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    # Find the media item
+    media_item = MediaItem.query.get(item_id)
+    if not media_item:
+        return jsonify({"error": "Media item not found"}), 404
+
+    # Extract public_id from Cloudinary URL
+    try:
+        # Cloudinary URL example: https://res.cloudinary.com/demo/image/upload/v123456789/gallery/photos/abc123.jpg
+        public_id = media_item.url.split("/")[-1].split(".")[0]
+        folder = "gallery/photos" if media_item.mimetype.startswith("image") else "gallery/videos"
+        full_id = f"{folder}/{public_id}"
+
+        # Delete from Cloudinary
+        cloudinary.uploader.destroy(full_id, resource_type="video" if media_item.mimetype.startswith("video") else "image")
+    except Exception as e:
+        return jsonify({"error": "Failed to delete from Cloudinary", "details": str(e)}), 500
+
+    # Remove from database
+    db.session.delete(media_item)
+    db.session.commit()
+
+    return jsonify({"message": "Media deleted successfully"}), 200

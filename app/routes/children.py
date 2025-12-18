@@ -2,12 +2,18 @@
 
 
 # routes/children_routes.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify,current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
+from sqlalchemy import and_
 from datetime import datetime, date, timedelta
 from app.models import Child, Attendance, Offering, SundayClass
 from app.extensions import db
 from sqlalchemy import text
+import os
+from werkzeug.utils import secure_filename
+from docx import Document
+from openpyxl import load_workbook
+
 
 children_bp = Blueprint("children_bp", __name__, url_prefix="/api/children")
 
@@ -27,6 +33,99 @@ def get_sundays_between(start_date, end_date):
 # ------------------------
 # CHILD CRUD
 # ------------------------
+def parse_docx(file_path):
+    doc = Document(file_path)
+    rows = []
+
+    for table in doc.tables:
+        for i, row in enumerate(table.rows):
+            if i == 0:
+                continue  # skip header
+            cells = [c.text.strip() for c in row.cells]
+            rows.append(cells)
+
+    return rows
+
+
+def parse_xlsx(file_path):
+    wb = load_workbook(file_path)
+    sheet = wb.active
+    rows = []
+
+    for i, row in enumerate(sheet.iter_rows(values_only=True)):
+        if i == 0:
+            continue
+        rows.append([str(c).strip() if c else "" for c in row])
+
+    return rows
+
+
+
+@children_bp.route("/upload", methods=["POST"])
+@jwt_required()
+def upload_children():
+    user_id = get_jwt_identity()
+
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename"}), 400
+
+    filename = secure_filename(file.filename)
+    upload_dir = current_app.config["CHILDREN_UPLOAD_FOLDER"]
+    file_path = os.path.join(upload_dir, filename)
+
+    file.save(file_path)
+
+    created = 0
+    skipped = 0
+
+    try:
+        # -------- Parse file --------
+        if filename.endswith(".docx"):
+            rows = parse_docx(file_path)
+        elif filename.endswith(".xlsx"):
+            rows = parse_xlsx(file_path)
+        else:
+            return jsonify({"error": "Unsupported file type"}), 400
+
+        # -------- Insert rows --------
+        for row in rows:
+            try:
+                name, age, gender, parent_name, parent_contact = row[:5]
+
+                if not name:
+                    skipped += 1
+                    continue
+
+                child = Child(
+                    name=name,
+                    age=int(age) if age else None,
+                    gender=gender,
+                    parent_name=parent_name,
+                    parent_contact=parent_contact,
+                    added_by_id=user_id,
+                )
+
+                db.session.add(child)
+                created += 1
+
+            except Exception:
+                skipped += 1
+
+        db.session.commit()
+
+        return jsonify({
+            "created": created,
+            "skipped": skipped
+        }), 201
+
+    finally:
+        # 🔥 AUTO DELETE FILE
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 # GET all children (optionally by class or search)
 @children_bp.route("/", methods=["GET"])
@@ -323,3 +422,68 @@ def list_offerings():
         "recorded_by": o.recorded_by
     } for o in items]
     return jsonify(out), 200
+
+
+
+
+
+
+# PATCH update today's offering for a class
+@children_bp.route("/offerings/<string:class_id>/today", methods=["PATCH"])
+# @jwt_required()
+def update_today_offering(class_id):
+    data = request.get_json() or {}
+    amount = data.get("amount")
+
+    if amount is None:
+        return jsonify({"error": "Amount required"}), 400
+
+    today = date.today()
+
+    offering = Offering.query.filter_by(
+        class_id=class_id,
+        date=today
+    ).first()
+
+    if not offering:
+        # create new offering if it doesn't exist
+        offering = Offering(class_id=class_id, date=today, amount=amount)
+        db.session.add(offering)
+    else:
+        # update existing
+        offering.amount = amount
+
+    db.session.commit()
+
+    return jsonify({
+        "id": offering.id,
+        "class_id": offering.class_id,
+        "date": offering.date.isoformat(),
+        "amount": float(offering.amount)
+    }), 200
+
+
+
+
+
+
+# DELETE offering
+@children_bp.route("/offerings", methods=["DELETE"])
+def delete_offering():
+    data = request.get_json()
+    class_id = data.get("class_id")
+    date_str = data.get("date")
+    
+    if not class_id or not date_str:
+        return jsonify({"message": "class_id and date required"}), 400
+
+    offering = Offering.query.filter_by(class_id=class_id, date=date_str).first()
+    if not offering:
+        return jsonify({"message": "Offering not found"}), 404
+
+    db.session.delete(offering)
+    db.session.commit()
+    return jsonify({"message": "Offering deleted successfully"}), 200
+
+
+

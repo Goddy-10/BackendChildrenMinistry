@@ -44,22 +44,35 @@ def add_member():
 @members_bp.patch("/<int:id>")
 def update_member(id):
     member = Member.query.get_or_404(id)
-    data = request.get_json()
+    data = request.get_json() or {}
 
     try:
-        if "name" in data:
-            member.full_name = data["name"]
+        if "full_name" in data:
+            member.full_name = data["full_name"]
+
         if "phone" in data:
             member.phone = data["phone"]
+
+        if "residence" in data:
+            member.residence = data["residence"]
+
+        # Optional fields (safe to keep)
         if "position" in data:
             member.position = data["position"]
+
         if "gender" in data:
             member.gender = data["gender"]
+
         if "department_id" in data:
             member.department_id = data["department_id"]
 
         db.session.commit()
-        return jsonify({"message": "Member updated successfully", "member": member.to_dict()}), 200
+
+        return jsonify({
+            "message": "Member updated successfully",
+            "member": member.to_dict()
+        }), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 400

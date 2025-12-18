@@ -299,6 +299,7 @@ class MediaItem(db.Model):
     description = db.Column(db.String(255), nullable=True)
     uploaded_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_featured=db.Column(db.Boolean,default=False)
 
     uploader = db.relationship("User", foreign_keys=[uploaded_by])
 
@@ -506,6 +507,7 @@ class NewMember(db.Model):
     email = db.Column(db.String(120), nullable=True, unique=True)
     join_date = db.Column(db.Date, default=datetime.utcnow)
     notes = db.Column(db.Text, nullable=True)
+    residence = db.Column(db.Text, nullable=True)
 
     # optional: link to Sunday class or department if relevant
     sunday_class_id = db.Column(db.Integer, db.ForeignKey("sunday_classes.id"), nullable=True)
@@ -520,8 +522,10 @@ class NewMember(db.Model):
         "email": self.email,
         "join_date": self.join_date.strftime("%Y-%m-%d") if self.join_date else None,
         "notes": self.notes,
+        "residence":self.residence,
         "sunday_class_id": self.sunday_class_id,
         "department_id": self.department_id,
+
         # Optional: include related objects if needed
        
     }
