@@ -17,7 +17,7 @@ def get_visitors():
 
 # -------------------- ADD NEW VISITOR --------------------
 @visitors_bp.post("")
-@jwt_required()
+# @jwt_required()
 def add_visitor():
     data = request.get_json()
     full_name = data.get("name")  

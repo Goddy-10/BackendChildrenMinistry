@@ -41,7 +41,7 @@ def create_app(config_class=Config):
     # <-- Updated CORS setup -->
     cors.init_app(
         app,
-        resources={r"/*": {"origins": ["http://localhost:5173"]}},
+        resources={r"/*": {"origins": ["*"]}},
         supports_credentials=True,
         allow_headers=["Content-Type", "Authorization"],  # allow Authorization header
         methods=["GET", "POST", "PUT","PATCH", "DELETE", "OPTIONS"]  # allow common methods
