@@ -14,44 +14,6 @@ def list_programs():
     return jsonify([p.to_dict() for p in programs]), 200
 
 
-# -------------------------------------------
-# CREATE PROGRAM (ROW SAVE)
-# -------------------------------------------
-# @programs_bp.route("/", methods=["POST"])
-# def create_program():
-#     description = request.form.get("description")
-#     coordinator = request.form.get("coordinator")
-#     date = request.form.get("date")
-
-#     if not description:
-#         return jsonify({"error": "Description required"}), 400
-
-#     program = Program(
-#         description=description,
-#         coordinator=coordinator,
-#         date=date
-#     )
-#     db.session.add(program)
-#     db.session.commit()
-
-#     # Handle files
-#     if "files" in request.files:
-#         files = request.files.getlist("files")
-#         for f in files:
-#             filename = f.filename
-#             save_path = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
-#             f.save(save_path)
-
-#             pf = ProgramFile(
-#                 program_id=program.id,
-#                 filename=filename,
-#                 file_type=f.content_type
-#             )
-#             db.session.add(pf)
-
-#         db.session.commit()
-
-#     return jsonify(program.to_dict()), 201
 
 @programs_bp.route("/", methods=["POST"])
 def create_program():
@@ -78,7 +40,7 @@ def create_program():
     for file in files:
         if file:
             filename = file.filename
-            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+            filepath = os.path.join(current_app.config["BASE_UPLOAD_FOLDER"], filename)
             file.save(filepath)
 
             # Save to database
@@ -116,7 +78,7 @@ def update_program(id):
         files = request.files.getlist("files")
         for f in files:
             filename = f.filename
-            save_path = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
+            save_path = os.path.join(current_app.config["BASE_UPLOAD_FOLDER"], filename)
             f.save(save_path)
 
             pf = ProgramFile(

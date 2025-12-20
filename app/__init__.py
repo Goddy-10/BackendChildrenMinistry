@@ -40,12 +40,19 @@ def create_app(config_class=Config):
 
     # <-- Updated CORS setup -->
     cors.init_app(
-        app,
-        resources={r"/*": {"origins": ["*"]}},
-        supports_credentials=True,
-        allow_headers=["Content-Type", "Authorization"],  # allow Authorization header
-        methods=["GET", "POST", "PUT","PATCH", "DELETE", "OPTIONS"]  # allow common methods
-    )
+    app,
+    resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:5173",              # dev
+                "https://your-frontend.vercel.app"    # production
+            ]
+        }
+    },
+    supports_credentials=True,
+    allow_headers=["Content-Type", "Authorization"],
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+)
 
     
     from flask_jwt_extended import JWTManager
