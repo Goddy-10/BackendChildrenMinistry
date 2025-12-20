@@ -44,8 +44,8 @@ def create_app(config_class=Config):
     resources={
         r"/api/*": {
             "origins": [
-                "http://localhost:5173",              # dev
-                "https://children-ministry.vercel.app"    # production
+                              # dev
+                "https://gcc-karama.vercel.app"    # production
             ]
         }
     },
