@@ -45,7 +45,7 @@ def create_app(config_class=Config):
         r"/api/*": {
             "origins": [
                 "http://localhost:5173",              # dev
-                "https://children-ministry.vercel.app/"    # production
+                "https://children-ministry.vercel.app"    # production
             ]
         }
     },
