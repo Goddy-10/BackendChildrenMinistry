@@ -15,6 +15,12 @@ os.makedirs(CHILDREN_UPLOAD_FOLDER, exist_ok=True)
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret")
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR,'cm_dev.sqlite')}")
+     # Fix for Postgres on Render/Supabase
+    if SQLALCHEMY_DATABASE_URI.startswith("postgresql://"):
+        SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace(
+            "postgresql://", "postgresql+psycopg2://", 1
+        )
+
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "jwt-secret-dev")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)
