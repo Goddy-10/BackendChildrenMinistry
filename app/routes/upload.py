@@ -111,6 +111,21 @@ def toggle_featured(item_id):
 
 
 # ---------- GET FEATURED FOR HOMEPAGE ----------
+# @gallery_bp.route("/featured", methods=["GET"])
+# def get_featured_media():
+#     """Fetch only featured media for homepage"""
+#     items = MediaItem.query.filter_by(is_featured=True).order_by(MediaItem.uploaded_at.desc()).all()
+
+#     return jsonify([
+#         {
+#             "id": item.id,
+#             "url": item.url,
+#             "description": item.description,
+#             "media_type": "image" if item.mimetype.startswith("image") else "video",
+#         }
+#         for item in items
+#     ])
+
 @gallery_bp.route("/featured", methods=["GET"])
 def get_featured_media():
     """Fetch only featured media for homepage"""
@@ -119,14 +134,12 @@ def get_featured_media():
     return jsonify([
         {
             "id": item.id,
-            "url": item.url,
-            "description": item.description,
+            "url": item.url,  # Keep this as 'url', not 'file_url'
+            "description": getattr(item, "description", ""),
             "media_type": "image" if item.mimetype.startswith("image") else "video",
         }
         for item in items
     ])
-
-
 
 
 

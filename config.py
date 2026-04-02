@@ -27,10 +27,23 @@ class Config:
     BASE_UPLOAD_FOLDER = BASE_UPLOAD_FOLDER
     PROGRAMS_UPLOAD_FOLDER = PROGRAMS_UPLOAD_FOLDER
     CHILDREN_UPLOAD_FOLDER = CHILDREN_UPLOAD_FOLDER
+
+
+
+
+#for testing cloudinary integration
+
+import cloudinary
+
+cloudinary.config(
+    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret=os.environ.get("CLOUDINARY_API_SECRET")
+)  
     
 
-# UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads", "programs")
-# os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+UPLOAD_FOLDER = os.path.join(os.getcwd(), "uploads", "programs")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
     # other config values if needed
 
