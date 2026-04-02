@@ -1,11 +1,10 @@
 
-
-
 # app/__init__.py
 from flask import Flask ,send_from_directory ,current_app
 from .extensions import db, migrate, jwt, cors
 from config import Config,BASE_UPLOAD_FOLDER
 from app.routes.upload import gallery_bp
+from app.routes.events import events_bp
 
 from app.routes.hbc import homechurch_bp
 
@@ -22,8 +21,8 @@ def create_app(config_class=Config):
     
     
 
-   
-    
+
+
 
 
 
@@ -67,6 +66,8 @@ def create_app(config_class=Config):
     from app.routes.adults_rest import adults_bp
     app.register_blueprint(adults_bp,url_prefix="/api")
       # noqa: F401
+
+    
     from app.routes.departments import department_members_bp
     from app.routes.classes import classes_bp  
     from app.routes.timetable import timetable_bp  
@@ -76,6 +77,7 @@ def create_app(config_class=Config):
     from app.routes.members import members_bp 
     from app.routes.children import children_bp
     from app.routes.programs import programs_bp
+    
     from .routes.auth import auth_bp
     app.register_blueprint(auth_bp,url_prefix="/api/auth")
     from .routes.teacher import teachers_bp
@@ -91,6 +93,7 @@ def create_app(config_class=Config):
     app.register_blueprint(reports_bp,url_prefix="/api/reports")
     app.register_blueprint(programs_bp,url_prefix="/api/programs")
     app.register_blueprint(department_members_bp)
+    app.register_blueprint(events_bp, url_prefix="/api")
 
 
     print("✅ Registered Blueprints:", app.blueprints.keys())

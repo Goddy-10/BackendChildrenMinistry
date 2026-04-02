@@ -278,12 +278,30 @@ class Event(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     headline = db.Column(db.String(255), nullable=False)
     message = db.Column(db.Text, nullable=True)
-    date = db.Column(db.DateTime, nullable=False)
+    start_date = db.Column(db.DateTime, nullable=False)  # ✅ Renamed from 'date'
+    end_date = db.Column(db.DateTime, nullable=True)     # ✅ NEW: For multi-day events
     created_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     creator = db.relationship("User", foreign_keys=[created_by])
     media = db.relationship("MediaItem", secondary=event_media, backref="events")
+
+
+    def to_dict(self):
+        """Serialize event to dictionary"""
+        return {
+            "id": self.id,
+            "headline": self.headline,
+            "message": self.message,
+            "start_date": self.start_date.isoformat() if self.start_date else None,
+            "end_date": self.end_date.isoformat() if self.end_date else None,
+            "created_by": self.created_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "media": [m.to_dict() for m in self.media] if self.media else []
+        }
+    
+
+
 
 class MediaItem(db.Model):
     """
@@ -302,6 +320,22 @@ class MediaItem(db.Model):
     is_featured=db.Column(db.Boolean,default=False)
 
     uploader = db.relationship("User", foreign_keys=[uploaded_by])
+
+    def to_dict(self):
+        """Serialize media item to dictionary"""
+        return {
+            "id": self.id,
+            "filename": self.filename,
+            "url": self.url,
+            "mimetype": self.mimetype,
+            "description": self.description,
+            "uploaded_by": self.uploaded_by,
+            "uploaded_at": self.uploaded_at.isoformat() if self.uploaded_at else None,
+            "is_featured": self.is_featured
+        }
+
+
+
 
 # ==================== REPLACE MY OLD FinanceEntry ====================
 class FinanceEntry(db.Model):
