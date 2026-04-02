@@ -31,7 +31,7 @@ def add_member():
             "member": {
                 "id": member.id,
                 "name": member.full_name,        # include 'name' for frontend
-                "residence": member.residence,     # include 'position'
+                "residence": member.residence,     
                 "phone": member.phone,
                 "department_id": member.department_id
             }

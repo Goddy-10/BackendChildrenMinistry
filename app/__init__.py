@@ -44,7 +44,8 @@ def create_app(config_class=Config):
     resources={
         r"/api/*": {
             "origins": [
-                              # dev
+                "http://localhost:5173",            # localdev desktop
+                "http://10.122.254.239:5173/membership",           # localdev mobile
                 "https://gcc-karama.vercel.app"    # production
             ]
         }
